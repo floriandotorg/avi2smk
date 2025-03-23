@@ -1,6 +1,7 @@
 #pragma once
 
-#include <fstream>
+#include <istream>
+#include <span>
 #include <string>
 #include <array>
 #include <vector>
@@ -8,8 +9,8 @@
 namespace smk {
   class decoder {
     public:
-      explicit decoder(std::ifstream &file);
-      std::vector<uint8_t> decode_frame();
+      explicit decoder(std::istream &file);
+      std::span<uint8_t> decode_frame();
 
       uint32_t width() const { return _width; }
       uint32_t height() const { return _height; }
@@ -17,7 +18,7 @@ namespace smk {
       int32_t framerate() const { return _framerate; }
 
     private:
-      std::ifstream &_file;
+      std::istream &_file;
       uint32_t _width;
       uint32_t _height;
       uint32_t _num_frames;

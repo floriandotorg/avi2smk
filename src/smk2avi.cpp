@@ -1,11 +1,13 @@
+#include <fstream>
 #include <iostream>
+#include <format>
 
 #include "avi/encoder.hpp"
 #include "smk/decoder.hpp"
 
 int main(int argc, char **argv) {
     if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <input file>" << std::endl;
+        std::cerr << std::format("Usage: {} <input file>", argv[0]) << std::endl;
         return 1;
     }
 
@@ -16,7 +18,7 @@ int main(int argc, char **argv) {
     avi::encoder encoder(output, decoder.width(), decoder.height(), decoder.framerate(), decoder.num_frames());
 
     for (size_t n = 0; n < decoder.num_frames(); ++n) {
-        std::cout << "Frame " << n + 1 << "... " << std::flush;
+        std::cout << std::format("Frame {}... ", n + 1) << std::flush;
         encoder.encode_frame(decoder.decode_frame());
     }
 

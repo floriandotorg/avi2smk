@@ -3,25 +3,28 @@
 #include <bit>
 #include <cstring>
 #include <algorithm>
-
-constexpr static uint32_t HUFF8_BRANCH = 0x8000;
-constexpr static uint32_t HUFF8_LEAF_MASK = 0x7FFF;
-
-constexpr static uint32_t HUFF16_BRANCH = 0x80000000;
-constexpr static uint32_t HUFF16_LEAF_MASK = 0x3FFFFFFF;
-constexpr static uint32_t HUFF16_CACHE = 0x40000000;
-
-template<typename T>
-T read(std::istream &file) {
-    T value;
-    file.read(reinterpret_cast<char*>(&value), sizeof(T));
-    if constexpr (std::endian::native != std::endian::little) {
-        value = std::byteswap(value);
-    }
-    return value;
-}
+#include <format>
+#include <string_view>
+#include <stdexcept>
 
 namespace smk {
+    constexpr static uint32_t HUFF8_BRANCH = 0x8000;
+    constexpr static uint32_t HUFF8_LEAF_MASK = 0x7FFF;
+
+    constexpr static uint32_t HUFF16_BRANCH = 0x80000000;
+    constexpr static uint32_t HUFF16_LEAF_MASK = 0x3FFFFFFF;
+    constexpr static uint32_t HUFF16_CACHE = 0x40000000;
+
+    template<typename T>
+    T read(std::istream &file) {
+        T value;
+        file.read(reinterpret_cast<char*>(&value), sizeof(T));
+        if constexpr (std::endian::native != std::endian::little) {
+            value = std::byteswap(value);
+        }
+        return value;
+    }
+
     enum class frame_type : uint8_t {
         mono = 0,
         full = 1,
@@ -29,16 +32,11 @@ namespace smk {
         solid = 3,
     };
 
-    decoder::decoder(std::ifstream &file) : _file(file) {
-        if (!_file.is_open()) {
-            throw std::runtime_error("File is not open");
-        }
-
-        char signature[4];
-        file.read(signature, sizeof(signature));
-        if (std::ranges::equal(signature, "SMK2")) {
-            std::print("Invalid SMK signature: {}\n", signature);
-            throw std::runtime_error("Invalid SMK signature");
+    decoder::decoder(std::istream &file) : _file(file) {
+        std::array<char, 4> signature;
+        file.read(signature.data(), signature.size());
+        if (std::string_view(signature.data(), signature.size()) != "SMK2") {
+            throw std::runtime_error(std::format("Invalid SMK signature: {}", signature));
         }
 
         _width = read<uint32_t>(_file);
@@ -74,7 +72,7 @@ namespace smk {
             }
         }
 
-        const auto end_of_trees = _file.tellg() + static_cast<std::ifstream::pos_type>(trees_size);
+        const auto end_of_trees = _file.tellg() + static_cast<std::istream::pos_type>(trees_size);
 
         _init_bitstream();
         _mmap = _build_hoff16();
@@ -94,8 +92,8 @@ namespace smk {
         std::ranges::fill(_frame_data, 0);
     }
 
-    std::vector<uint8_t> decoder::decode_frame() {
-        const auto end_of_frame = _file.tellg() + static_cast<std::ifstream::pos_type>(_frame_sizes[_current_frame]);
+    std::span<uint8_t> decoder::decode_frame() {
+        const auto end_of_frame = _file.tellg() + static_cast<std::istream::pos_type>(_frame_sizes[_current_frame]);
 
         if (_frame_types[_current_frame] & 0x01) {
             _read_palette();
@@ -365,7 +363,7 @@ namespace smk {
         };
 
         palette::iterator n = _palette.begin();
-        const auto palette_end = _file.tellg() + static_cast<std::ifstream::pos_type>(_file.get() * 4);
+        const auto palette_end = _file.tellg() + static_cast<std::istream::pos_type>(_file.get() * 4);
         while (_file.tellg() < palette_end) {
             const uint8_t block = _file.get();
             if (block & 0x80) {

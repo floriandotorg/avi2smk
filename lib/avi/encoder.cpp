@@ -11,7 +11,7 @@ void write(std::ostream &file, T value) {
 }
 
 namespace avi {
-    encoder::encoder(std::ofstream &file, uint32_t width, uint32_t height, uint32_t fps, uint32_t num_frames)
+    encoder::encoder(std::ostream &file, uint32_t width, uint32_t height, uint32_t fps, uint32_t num_frames)
     : _file(file), _width(width), _pad(((4 - (width * 3) % 4) % 4)) {
         std::fill(_pad.begin(), _pad.end(), 0);
         _total_frame_size = (width + _pad.size()) * height * 3;
@@ -79,7 +79,7 @@ namespace avi {
         write(_file, size - 8);
     }
 
-    void encoder::encode_frame(const std::vector<uint8_t> &frame) {
+    void encoder::encode_frame(const std::span<uint8_t> &frame) {
         _file.write("00db", 4);
         write(_file, _total_frame_size);
         for (size_t n = 0; n < frame.size() / 3; ++n) {

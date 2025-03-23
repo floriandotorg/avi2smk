@@ -53,7 +53,8 @@
 		"variant": "cpp",
 		"vector": "cpp",
 		"algorithm": "cpp",
-		"__config": "cpp"
+		"__config": "cpp",
+		"format": "cpp"
 	},
 	"workbench.colorCustomizations": {
 		"statusBar.background": "#f9e64f",
@@ -63,5 +64,14 @@
 		"statusBarItem.remoteForeground": "#15202b"
 	},
 	"peacock.color": "#f9e64f",
-	"cSpell.words": ["mclr", "palmap"]
+	"cSpell.words": [
+		"avih",
+		"hdrl",
+		"mclr",
+		"palmap",
+		"pels",
+		"strf",
+		"strh",
+		"strl"
+	]
 }
