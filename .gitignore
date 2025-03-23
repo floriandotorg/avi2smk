@@ -9,3 +9,7 @@
 *.smk
 .DS_Store
 *.avi
+*.mp4
+avi2smk
+smk2avi
+libshared_lib.a
