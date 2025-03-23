@@ -1,6 +1,6 @@
 # Smacker Video Encoder/Decoder
 
-A tool for encoding and decoding Smacker video files (.smk), a multimedia file format primarily used in games from the mid-1990s, including the 1997 Lego Island game.
+A highly-portable, zero-dependency CPP lib/cli for encoding and decoding Smacker video files (.smk), a multimedia file format primarily used in games from the mid-1990s, including the 1997 Lego Island game.
 
 ## About Smacker Format
 
@@ -23,7 +23,8 @@ Smacker is a proprietary video file format developed by RAD Game Tools. It was w
 ```bash
 git clone https://github.com/floriandotorg/avi2smk.git
 cd avi2smk
-cmake --build .
+cmake .
+make
 ```
 
 ### Using the Tool
