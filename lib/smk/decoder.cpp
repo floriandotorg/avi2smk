@@ -4,6 +4,13 @@
 #include <cstring>
 #include <algorithm>
 
+constexpr static uint32_t HUFF8_BRANCH = 0x8000;
+constexpr static uint32_t HUFF8_LEAF_MASK = 0x7FFF;
+
+constexpr static uint32_t HUFF16_BRANCH = 0x80000000;
+constexpr static uint32_t HUFF16_LEAF_MASK = 0x3FFFFFFF;
+constexpr static uint32_t HUFF16_CACHE = 0x40000000;
+
 template<typename T>
 T read(std::istream &file) {
     T value;
@@ -213,11 +220,9 @@ namespace smk {
     bool decoder::_bitstream_read_bit() {
         const bool result = (_current_byte >> _current_bit) & 1;
 
-        if (_current_bit >= 7) {
+        if (++_current_bit > 7) {
             _current_byte = _file.get();
             _current_bit = 0;
-        } else {
-            ++_current_bit;
         }
 
         return result;
@@ -348,7 +353,6 @@ namespace smk {
         palette old_palette;
         std::ranges::copy(_palette, old_palette.begin());
 
-        // spellchecker: ignore palmap
         constexpr uint8_t palmap[64] = {
             0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C,
             0x20, 0x24, 0x28, 0x2C, 0x30, 0x34, 0x38, 0x3C,

@@ -32,13 +32,6 @@ namespace smk {
       bool _bitstream_read_bit();
       uint8_t _bitstream_read_byte();
 
-      constexpr static uint32_t HUFF8_BRANCH = 0x8000;
-      constexpr static uint32_t HUFF8_LEAF_MASK = 0x7FFF;
-
-      constexpr static uint32_t HUFF16_BRANCH = 0x80000000;
-      constexpr static uint32_t HUFF16_LEAF_MASK = 0x3FFFFFFF;
-      constexpr static uint32_t HUFF16_CACHE = 0x40000000;
-
       struct huff16 {
         std::vector<uint32_t> tree;
         std::array<uint16_t, 3> cache;
