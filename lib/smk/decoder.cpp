@@ -140,9 +140,9 @@ namespace smk {
                         for (size_t n = 0; n < 4; ++n) {
                             for (size_t m = 0; m < 4; ++m) {
                                 if (map & (1 << (n * 4 + m))) {
-                                    std::copy_n(color1.begin(), 3, t + skip + m * 3);
+                                    std::copy(color1.begin(), color1.end(), t + skip + m * 3);
                                 } else {
-                                    std::copy_n(color2.begin(), 3, t + skip + m * 3);
+                                    std::copy(color2.begin(), color2.end(), t + skip + m * 3);
                                 }
                             }
 
@@ -159,16 +159,16 @@ namespace smk {
                             const auto color1 = _palette[full & 0xFF00 >> 8];
                             const auto color2 = _palette[full & 0xFF];
 
-                            std::copy_n(color1.begin(), 3, t + skip + 3 * 3);
-                            std::copy_n(color2.begin(), 3, t + skip + 2 * 3);
+                            std::copy(color1.begin(), color1.end(), t + skip + 3 * 3);
+                            std::copy(color2.begin(), color2.end(), t + skip + 2 * 3);
 
                             full = _lookup_hoff16(_full);
 
                             const auto color3 = _palette[full & 0xFF00 >> 8];
                             const auto color4 = _palette[full & 0xFF];
 
-                            std::copy_n(color3.begin(), 3, t + skip + 3);
-                            std::copy_n(color4.begin(), 3, t + skip);
+                            std::copy(color3.begin(), color3.end(), t + skip + 3);
+                            std::copy(color4.begin(), color4.end(), t + skip);
 
                             skip += _width * 3;
                         }
@@ -183,7 +183,7 @@ namespace smk {
                         const auto color = _palette[typedata & 0xFF];
                         for (size_t n = 0; n < 4; ++n) {
                             for (size_t m = 0; m < 4; ++m) {
-                                std::copy_n(color.begin(), 3, t + skip + m * 3);
+                                std::copy(color.begin(), color.end(), t + skip + m * 3);
                             }
 
                             skip += _width * 3;
