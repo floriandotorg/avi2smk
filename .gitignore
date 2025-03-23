@@ -1,0 +1,11 @@
+# Ignore CMake build artifacts
+/build/
+/CMakeCache.txt
+/CMakeFiles/
+/Makefile
+/*.cmake
+/*.vcxproj*
+/compile_commands.json
+*.smk
+.DS_Store
+*.avi
