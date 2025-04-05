@@ -53,6 +53,16 @@ This will create an `output.smk` file in the current directory.
 
 _Note: AVI to Smacker conversion is still a work in progress as mentioned in the Features section._
 
+## Unit Tests
+
+You can build and run the unit tests like this:
+
+```bash
+cmake -DBUILD_TESTING=ON
+make
+ctest
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

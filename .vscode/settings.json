@@ -54,7 +54,9 @@
 		"vector": "cpp",
 		"algorithm": "cpp",
 		"__config": "cpp",
-		"format": "cpp"
+		"format": "cpp",
+		"span": "cpp",
+		"iterator": "cpp"
 	},
 	"workbench.colorCustomizations": {
 		"statusBar.background": "#f9e64f",

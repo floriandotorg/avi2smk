@@ -15,3 +15,20 @@ target_link_libraries(avi2smk shared_lib)
 target_link_libraries(smk2avi shared_lib)
 
 target_include_directories(shared_lib PUBLIC lib)
+
+option(BUILD_TESTING "Build tests" OFF)
+
+if (BUILD_TESTING)
+    enable_testing()
+
+    set(TEST_SOURCES
+        test_huffman
+        test_bitstream
+    )
+
+    foreach(test_name IN LISTS TEST_SOURCES)
+        add_executable(${test_name} tests/${test_name}.cpp)
+        target_link_libraries(${test_name} shared_lib)
+        add_test(NAME ${test_name}Test COMMAND ${test_name})
+    endforeach()
+endif()
