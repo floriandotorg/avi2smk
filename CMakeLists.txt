@@ -24,6 +24,7 @@ if (BUILD_TESTING)
     set(TEST_SOURCES
         test_huffman
         test_bitstream
+        test_palette
     )
 
     foreach(test_name IN LISTS TEST_SOURCES)

@@ -3,14 +3,6 @@
 
 #include "util.hpp"
 
-#define private public
-#include "../lib/smk/encoder.hpp"
-#undef private
-
-#define private public: decoder(std::istream &file, bool testing_only) : _file(file) {}; public
-#include "../lib/smk/decoder.hpp"
-#undef private
-
 int main() {
     std::stringstream ss;
     auto bitstream = smk::encoder::bitstream(ss);
@@ -47,7 +39,8 @@ int main() {
 
     expect_eq(ss.str().size(), 3);
 
-    bitstream.write(0b00000011, 2);
+    bitstream.write(0b1, 3);
+    bitstream.write(0b1, 1);
     bitstream.flush();
 
     expect_eq(ss.str().size(), 4);
@@ -67,7 +60,7 @@ int main() {
         expect_eq(decoder._bitstream_read_bit(), 1);
         expect_eq(decoder._bitstream_read_bit(), 1);
         expect_eq(decoder._bitstream_read_byte(), 0b11001100);
-        expect_eq(decoder._bitstream_read_byte(), 0b00000011);
+        expect_eq(decoder._bitstream_read_byte(), 0b00001001);
     }
 
     expect_throw([&]() {

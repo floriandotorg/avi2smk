@@ -4,6 +4,34 @@
 #include <stdexcept>
 #include <functional>
 
+// we need to include these to prevent problems with redefining private
+#include <cstdint>
+#include <ostream>
+#include <istream>
+#include <span>
+#include <vector>
+#include <map>
+#include <utility>
+#include <algorithm>
+#include <cstddef>
+#include <cassert>
+#include <iterator>
+#include <ranges>
+#include <cstdint>
+#include <span>
+#include <array>
+#include <memory>
+#include <optional>
+#include <limits>
+
+#define private public
+#include "../lib/smk/encoder.hpp"
+#undef private
+
+#define private public: decoder(std::istream &file, bool testing_only) : _file(file) {}; public
+#include "../lib/smk/decoder.hpp"
+#undef private
+
 template <typename T, typename U>
 void expect_eq(const T &actual, const U &expected) {
     if (actual != expected) {

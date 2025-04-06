@@ -331,7 +331,8 @@ namespace smk {
             tree[branch] = HUFF8_BRANCH | tree.size();
             _build_hoff8_rec(tree);
         } else {
-            tree.push_back(_bitstream_read_byte());
+            const char value = _bitstream_read_byte();
+            tree.push_back(value);
         }
     }
 

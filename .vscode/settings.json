@@ -56,7 +56,10 @@
 		"__config": "cpp",
 		"format": "cpp",
 		"span": "cpp",
-		"iterator": "cpp"
+		"iterator": "cpp",
+		"utility": "cpp",
+		"__tree": "cpp",
+		"map": "cpp"
 	},
 	"workbench.colorCustomizations": {
 		"statusBar.background": "#f9e64f",
