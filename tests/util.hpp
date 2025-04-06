@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <limits>
+#include <climits>
 
 #define private public
 #include "../lib/smk/encoder.hpp"

@@ -1,7 +1,6 @@
 #include "encoder.hpp"
 
 #include <algorithm>
-#include <limits>
 #include <stdexcept>
 #include <limits>
 
