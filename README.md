@@ -32,7 +32,7 @@ This project has no dependencies other then the C++ Standard Library. C++23 is t
 ```bash
 git clone https://github.com/floriandotorg/avi2smk.git
 cd avi2smk
-cmake .
+cmake -DCMAKE_BUILD_TYPE=Release .
 make
 ```
 
