@@ -46,11 +46,11 @@ namespace smk {
 
         huff16 _build_hoff16();
         uint16_t _lookup_hoff16(huff16 &tree);
-        void _build_hoff16_rec(huff16 &tree, const std::vector<uint16_t> &low_tree, const std::vector<uint16_t> &high_tree);
+        void _build_hoff16_rec(huff16 &tree, const std::vector<uint16_t> &low_tree, const std::vector<uint16_t> &high_tree, std::string code);
 
         std::vector<uint16_t> _build_hoff8();
         uint8_t _lookup_hoff8(const std::vector<uint16_t> &tree);
-        void _build_hoff8_rec(std::vector<uint16_t> &tree);
+        void _build_hoff8_rec(std::vector<uint16_t> &tree, std::string code);
 
         using palette = std::array<std::array<uint8_t, 3>, 256>;
         palette _palette;

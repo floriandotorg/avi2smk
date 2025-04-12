@@ -14,8 +14,8 @@ int main(int argc, char **argv) {
     std::ifstream file(argv[1], std::ios::binary);
     avi::decoder decoder(file);
 
-    std::ofstream output("output.avi", std::ios::binary);
-    smk::encoder encoder(output, decoder.width(), decoder.height(), decoder.fps(), decoder.num_frames());
+    std::ofstream output("output.smk", std::ios::binary);
+    smk::encoder encoder(output, decoder.width(), decoder.height(), decoder.fps());
 
     for (size_t n = 0; n < decoder.num_frames(); ++n) {
         std::cout << std::format("Frame {}... ", n + 1) << std::flush;

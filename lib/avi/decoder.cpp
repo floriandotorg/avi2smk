@@ -32,8 +32,10 @@ namespace avi {
                 file.seekg(read<uint32_t>(file), std::ios::cur);
             } else if (std::string_view(buffer.data(), buffer.size()) == "LIST") {
                 break;
+            } else if (std::string_view(buffer.data(), buffer.size()) == "vprp") {
+                file.seekg(read<uint32_t>(file), std::ios::cur);
             } else {
-                throw std::runtime_error(std::format("Invalid signature: {}", buffer));
+                throw std::runtime_error(std::format("Invalid signature: {} (expected LIST, vprp or JUNK)", buffer));
             }
         }
     }

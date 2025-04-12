@@ -23,7 +23,7 @@ int main() {
     }
 
     std::stringstream ss;
-    smk::encoder encoder(ss, 0, 0, 0, 0);
+    smk::encoder encoder(ss, 0, 0, 0);
     encoder._write_palette(palette);
 
     smk::decoder decoder(ss, true);

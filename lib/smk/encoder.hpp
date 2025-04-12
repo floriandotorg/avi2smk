@@ -19,13 +19,15 @@
 namespace smk {
     class encoder {
     public:
-        explicit encoder(std::ostream &file, uint32_t width, uint32_t height, uint32_t fps, uint32_t num_frames);
+        explicit encoder(std::ostream &file, uint32_t width, uint32_t height, uint32_t fps);
+        ~encoder();
+
         void encode_frame(const std::span<uint8_t> &frame);
 
     private:
         class bitstream {
         public:
-            using value_type = uint16_t;
+            using value_type = uint32_t;
 
             bitstream(std::ostream &file);
             void write(value_type value, uint8_t length);
@@ -61,7 +63,7 @@ namespace smk {
                 bitstream::value_type word;
                 size_t length;
             };
-            std::map<symbol_type, code_type> _huff_table;
+
 
             void _build_huff_table(node *node, code_type code) {
                 if (node->symbol.has_value()) {
@@ -75,6 +77,7 @@ namespace smk {
 
             std::array<symbol_type, 3> _escape_values;
         public:
+            std::map<symbol_type, code_type> _huff_table;
             huffman_tree(bitstream &bitstream) : _bitstream(bitstream) {}
 
             void switch_to_write_mode() {
@@ -84,7 +87,7 @@ namespace smk {
 
                 if constexpr (is_huff16) {
                     size_t n = 0;
-                    for (uint16_t symbol = 0; symbol < std::numeric_limits<symbol_type>::max() && n < _escape_values.size(); ++symbol) {
+                    for (uint16_t symbol = 1; symbol < std::numeric_limits<symbol_type>::max() && n < _escape_values.size(); ++symbol) {
                         if (!_symbol_freq.contains(symbol)) {
                             _escape_values[n++] = symbol;
                         }
@@ -103,7 +106,7 @@ namespace smk {
 
                 if constexpr (is_huff16) {
                     for (size_t n = 0; n < _escape_values.size(); ++n) {
-                        queue.push_back(std::make_unique<node>(node{ nullptr, nullptr, _escape_values[n], std::numeric_limits<size_t>::max() }));
+                        queue.emplace_back(std::make_unique<node>(node{ nullptr, nullptr, _escape_values[n], std::numeric_limits<size_t>::max() }));
                     }
                 }
 
@@ -118,7 +121,12 @@ namespace smk {
                     queue.pop_back();
 
                     const auto freq = left->freq + right->freq;
-                    queue.push_back(std::make_unique<node>(node{ std::move(left), std::move(right), {}, freq }));
+                    queue.emplace_back(std::make_unique<node>(node{
+                        .zero = std::move(left),
+                        .one = std::move(right),
+                        .symbol = {},
+                        .freq = freq,
+                    }));
                 }
 
                 assert(queue.size() == 1);
@@ -194,6 +202,18 @@ namespace smk {
 
                 _bitstream.write(0b0, 1);
             }
+
+            size_t _size(node *node) const {
+                if (node->symbol.has_value()) {
+                    return 1;
+                }
+
+                return 1 + _size(node->zero.get()) + _size(node->one.get());
+            }
+
+            size_t size() const {
+                return _size(_root.get());
+            }
         };
 
         std::ostream &_file;
@@ -201,5 +221,44 @@ namespace smk {
         using palette_type = std::array<std::array<uint8_t, 3>, 256>;
 
         void _write_palette(const palette_type &palette);
+
+        size_t _num_frames = 0;
+
+        enum class block_type : uint8_t {
+            mono = 0,
+            full = 1,
+            void_ = 2,
+            solid = 3,
+        };
+
+        union block {
+            struct {
+                uint8_t color1;
+                uint8_t color2;
+            } mono;
+            struct {
+                std::array<uint8_t, 16> colors;
+            } full;
+        };
+
+        struct chain {
+            block_type type;
+            size_t length;
+            uint8_t data;
+            std::vector<block> blocks;
+        };
+
+        struct frame_data {
+            palette_type palette;
+            std::vector<chain> chains;
+        };
+
+        std::vector<frame_data> _frames;
+
+        uint32_t _width;
+        uint32_t _height;
+        uint32_t _fps;
+
+        void _write_chains(const std::vector<chain> &chains, huffman_tree<uint16_t> &type, huffman_tree<uint16_t> &mmap, huffman_tree<uint16_t> &mclr, huffman_tree<uint16_t> &full);
     };
 }

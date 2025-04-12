@@ -59,7 +59,11 @@
 		"iterator": "cpp",
 		"utility": "cpp",
 		"__tree": "cpp",
-		"map": "cpp"
+		"map": "cpp",
+		"cassert": "cpp",
+		"set": "cpp",
+		"unordered_set": "cpp",
+		"climits": "cpp"
 	},
 	"workbench.colorCustomizations": {
 		"statusBar.background": "#f9e64f",
@@ -77,6 +81,7 @@
 		"pels",
 		"strf",
 		"strh",
-		"strl"
+		"strl",
+		"vprp"
 	]
 }

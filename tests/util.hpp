@@ -24,6 +24,9 @@
 #include <optional>
 #include <limits>
 #include <climits>
+#include <bit>
+#include <sstream>
+#include <cassert>
 
 #define private public
 #include "../lib/smk/encoder.hpp"

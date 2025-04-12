@@ -8,8 +8,8 @@
 #include <stdexcept>
 
 namespace smk {
-    constexpr static uint32_t HUFF8_BRANCH = 0x8000;
-    constexpr static uint32_t HUFF8_LEAF_MASK = 0x7FFF;
+    constexpr static uint16_t HUFF8_BRANCH = 0x8000;
+    constexpr static uint16_t HUFF8_LEAF_MASK = 0x7FFF;
 
     constexpr static uint32_t HUFF16_BRANCH = 0x80000000;
     constexpr static uint32_t HUFF16_LEAF_MASK = 0x3FFFFFFF;
@@ -93,7 +93,7 @@ namespace smk {
     }
 
     std::span<uint8_t> decoder::decode_frame() {
-        const auto end_of_frame = _file.tellg() + static_cast<std::istream::pos_type>(_frame_sizes[_current_frame]);
+        const auto end_of_frame = _file.tellg() + static_cast<std::istream::pos_type>(_frame_sizes[_current_frame] & ~0x03); // 1st bottom bit indicates keyframe, 2nd bottom bit is reversed
 
         if (_frame_types[_current_frame] & 0x01) {
             _read_palette();
@@ -253,7 +253,7 @@ namespace smk {
         tree.cache[1] = _bitstream_read_byte() | (_bitstream_read_byte() << 8);
         tree.cache[2] = _bitstream_read_byte() | (_bitstream_read_byte() << 8);
 
-        _build_hoff16_rec(tree, low_tree, high_tree);
+        _build_hoff16_rec(tree, low_tree, high_tree, "");
 
         if (_bitstream_read_bit()) {
             throw std::runtime_error("Error reading huff16");
@@ -285,13 +285,13 @@ namespace smk {
         return value;
     }
 
-    void decoder::_build_hoff16_rec(huff16 &tree, const std::vector<uint16_t> &low_tree, const std::vector<uint16_t> &high_tree) {
+    void decoder::_build_hoff16_rec(huff16 &tree, const std::vector<uint16_t> &low_tree, const std::vector<uint16_t> &high_tree, std::string code) {
         if (_bitstream_read_bit()) {
             const auto branch = tree.tree.size();
-            tree.tree.push_back(0);
-            _build_hoff16_rec(tree, low_tree, high_tree);
+            tree.tree.emplace_back(0);
+            _build_hoff16_rec(tree, low_tree, high_tree, code + "0");
             tree.tree[branch] = HUFF16_BRANCH | tree.tree.size();
-            _build_hoff16_rec(tree, low_tree, high_tree);
+            _build_hoff16_rec(tree, low_tree, high_tree, code + "1");
         } else {
             uint32_t value = _lookup_hoff8(low_tree) | (_lookup_hoff8(high_tree) << 8);
 
@@ -303,7 +303,7 @@ namespace smk {
                 value = HUFF16_CACHE | 2;
             }
 
-            tree.tree.push_back(value);
+            tree.tree.emplace_back(value);
         }
     }
 
@@ -314,7 +314,7 @@ namespace smk {
 
         std::vector<uint16_t> tree;
         tree.reserve(511);
-        _build_hoff8_rec(tree);
+        _build_hoff8_rec(tree, "");
 
         if (_bitstream_read_bit()) {
             throw std::runtime_error("Error reading huff8");
@@ -323,16 +323,16 @@ namespace smk {
         return tree;
     }
 
-    void decoder::_build_hoff8_rec(std::vector<uint16_t> &tree) {
+    void decoder::_build_hoff8_rec(std::vector<uint16_t> &tree, std::string code) {
         if (_bitstream_read_bit()) {
             const auto branch = tree.size();
-            tree.push_back(0);
-            _build_hoff8_rec(tree);
+            tree.emplace_back(0);
+            _build_hoff8_rec(tree, code + "0");
             tree[branch] = HUFF8_BRANCH | tree.size();
-            _build_hoff8_rec(tree);
+            _build_hoff8_rec(tree, code + "1");
         } else {
-            const char value = _bitstream_read_byte();
-            tree.push_back(value);
+            const auto value = _bitstream_read_byte();
+            tree.emplace_back(value);
         }
     }
 
@@ -379,7 +379,12 @@ namespace smk {
                 const uint8_t b = palmap[_file.get() & 0x3F];
                 *n++ = {r, g, b};
             }
+
+            if (n >= _palette.end()) {
+                break;
+            }
         }
+
         _file.seekg(palette_end);
     }
 }
