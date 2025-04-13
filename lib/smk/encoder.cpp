@@ -21,7 +21,7 @@ namespace smk {
 
     void encoder::bitstream::write(value_type value, uint8_t length) {
         if (length > std::numeric_limits<value_type>::digits) {
-            throw std::invalid_argument("length exceeds value type");
+            throw std::invalid_argument("Length exceeds value type");
         }
 
         while (length > 0) {
@@ -45,13 +45,17 @@ namespace smk {
         }
     }
 
-    encoder::encoder(std::ostream &file, uint32_t width, uint32_t height, uint32_t fps) : _file(file), _width(width), _height(height), _fps(fps) {
+    encoder::encoder(std::ostream &file, uint32_t width, uint32_t height, uint32_t fps) : _file(file), _width(width), _height(height), _fps(fps), _last_frame(width * height * 3) {
         if (width % 4 != 0 || height % 4 != 0) {
-            throw std::invalid_argument("width and height must be divisible by 4");
+            throw std::invalid_argument("Width and height must be divisible by 4");
         }
     }
 
     void encoder::encode_frame(const std::span<uint8_t> &frame) {
+        if (frame.size() != _last_frame.size()) {
+            throw std::invalid_argument("Frame data does not match width and height");
+        }
+
         palette_type palette;
         size_t pos = 0;
         for (size_t n = 0; n < frame.size(); n += 3) {
@@ -68,7 +72,7 @@ namespace smk {
                 palette[pos++] = palette_type::value_type{ frame[n], frame[n + 1], frame[n + 2] };
 
                 if (pos >= palette.size()) {
-                    throw std::runtime_error("too many colors");
+                    throw std::runtime_error("Too many colors");
                 }
             }
         }
@@ -80,7 +84,7 @@ namespace smk {
                 }
             }
 
-            throw std::runtime_error(std::format("color not found: {} {} {}", color[0], color[1], color[2]));
+            throw std::runtime_error(std::format("Color not found: {} {} {}", color[0], color[1], color[2]));
         };
 
         struct preprocessed_block {
@@ -100,30 +104,33 @@ namespace smk {
         std::vector<preprocessed_block> blocks;
         for (size_t y = 0; y < _height; y += 4) {
             for (size_t x = 0; x < _width; x += 4) {
-                std::array<palette_type::value_type, 3> colors;
-                size_t num_colors = 0;
+                std::vector<palette_type::value_type> colors;
+                colors.reserve(3);
+                bool same_as_last = _num_frames > 0 ;
                 for (size_t y_off = 0; y_off < 4; ++y_off) {
-                    for (size_t x_off = 0; x_off < 4; ++x_off) {
-                        const size_t p = (y + y_off) * _width * 3 + (x + x_off) * 3;
-                        const auto color = palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] };
-
-                        if (std::find(colors.begin(), colors.begin() + num_colors, color) == colors.begin() + num_colors) {
-                            colors[num_colors++] = color;
-                        }
-
-                        if (num_colors >= colors.size()) {
-                            break;
-                        }
+                    const size_t py = (y + y_off) * _width * 3;
+                    if (same_as_last && !std::ranges::equal(_last_frame.begin() + py, _last_frame.begin() + py + 4 * 3, frame.begin() + py, frame.begin() + py + 4 * 3)) {
+                        same_as_last = false;
                     }
 
-                    if (num_colors >= colors.size()) {
-                        break;
+                    for (size_t x_off = 0; x_off < 4; ++x_off) {
+                        const size_t p = py + (x + x_off) * 3;
+                        const auto color = palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] };
+
+                        if (colors.size() < 3 && !std::ranges::contains(colors, color)) {
+                            colors.emplace_back(color);
+                        }
                     }
                 }
 
-                if (num_colors < 2) {
+                // if (same_as_last) {
+                //     blocks.emplace_back(preprocessed_block{ block_type::void_, {} });
+                //     continue;
+                // }
+
+                if (colors.size() < 2) {
                     blocks.emplace_back(preprocessed_block{ block_type::solid, { get_index(colors[0]) } });
-                } else if (num_colors == 2) {
+                } else if (colors.size() == 2) {
                     // uint16_t pattern = 0;
                     // for (size_t x_off = 0; x_off < 4; ++x_off) {
                     //     for (size_t y_off = 0; y_off < 4; ++y_off) {
@@ -144,6 +151,23 @@ namespace smk {
 
         assert(blocks.size() == _width * _height / 16);
 
+        std::vector<std::vector<preprocessed_block>> rle_blocks;
+        std::vector<preprocessed_block> current_chain;
+        for (size_t n = 0; n < blocks.size(); ++n) {
+            const auto &block = blocks[n];
+            current_chain.emplace_back(block);
+
+            if ((current_chain.size() < 2 || (block.type == current_chain.front().type && (block.type != block_type::solid || block.solid.color == current_chain.front().solid.color))) && n < blocks.size() - 1) {
+                continue;
+            }
+
+            assert(current_chain.size() > 0);
+            rle_blocks.emplace_back(std::move(current_chain));
+        }
+
+        assert(current_chain.size() == 0);
+        assert(std::ranges::fold_left(rle_blocks, 0, [](size_t acc, const auto &c) { return acc + c.size(); }) == blocks.size());
+
         constexpr std::array<size_t, 64> sizetable = {
             1,	2,	3,	4,	5,	6,	7,	8,
             9,	10,	11,	12,	13,	14,	15,	16,
@@ -155,34 +179,46 @@ namespace smk {
             57,	58,	59,	128, 256, 512, 1024, 2048
         };
 
-        std::vector<std::pair<size_t, std::vector<preprocessed_block>>> preprocessed_chains;
-        std::vector<preprocessed_block> current_chain;
-        for (const auto &block : blocks) {
-            // if (current_chain.size() < 1 || (block.type == current_chain.back().type && (block.type != block_type::solid || block.solid.color != current_chain.back().solid.color))) {
-            //     current_chain.emplace_back(block);
-            //     continue;
-            // }
+        const auto get_sizes = [sizetable](const std::vector<preprocessed_block> &c) {
+            std::vector<size_t> dp(c.size() + 1, std::numeric_limits<size_t>::max());
+            std::vector<size_t> lastSize(c.size() + 1, -1);
+            dp[0] = 0;
 
-            // while (current_chain.size() > 0) {
-            //     for (size_t n = sizetable.size(); n > 0; --n) {
-            //         if (current_chain.size() >= sizetable[n - 1]) {
-            //             preprocessed_chains.emplace_back(n - 1, std::vector<preprocessed_block>(current_chain.begin(), current_chain.begin() + n));
-            //             current_chain.erase(current_chain.begin(), current_chain.begin() + n);
-            //             break;
-            //         }
-            //     }
-            // }
-            preprocessed_chains.emplace_back(0, std::vector<preprocessed_block>{ block });
-        }
+            for (size_t n = 0; n < sizetable.size(); ++n) {
+                const auto size = sizetable[n];
+                for (size_t m = size; m <= c.size(); ++m) {
+                    if (dp[m - size] + 1 < dp[m]) {
+                        dp[m] = dp[m - size] + 1;
+                        lastSize[m] = n;
+                    }
+                }
+            }
+
+            if (lastSize[c.size()] == -1) {
+                throw std::runtime_error("Block size could not be encoded");
+            }
+
+            std::vector<size_t> sizes;
+            auto n = c.size();
+            while (n > 0) {
+                sizes.emplace_back(lastSize[n]);
+                n -= sizetable[lastSize[n]];
+            }
+
+            return sizes;
+        };
 
         std::vector<chain> chains;
-        for (const auto &c : preprocessed_chains) {
-            chains.emplace_back(chain{
-                .type = c.second[0].type,
-                .length = c.first,
-                .data = c.second[0].solid.color,
-                .blocks = {},
-            });
+        for (const auto &c : rle_blocks) {
+            const auto sizes = get_sizes(c);
+            for (size_t n = 0; n < sizes.size(); ++n) {
+                chains.emplace_back(chain{
+                    .type = c.front().type,
+                    .length = sizes[n],
+                    .data = c.front().solid.color,
+                    .blocks = {},
+                });
+            }
         }
 
         assert(std::ranges::fold_left(chains, 0, [sizetable](size_t acc, const auto &c) { return acc + sizetable[c.length]; }) == blocks.size());
@@ -193,6 +229,7 @@ namespace smk {
         });
 
         ++_num_frames;
+        std::ranges::copy(frame, _last_frame.begin());
     }
 
     encoder::~encoder() {
@@ -253,11 +290,9 @@ namespace smk {
             auto data = ss.str();
             const size_t frame_size = (data.size() + (256 * 3 + 4));
             const size_t padding = (4 - (frame_size % 4)) % 4;
-            for (size_t n = 0; n < padding; ++n) {
-                data += '\0';
-            }
+            data.append(padding, '\0');
             frame_data.emplace_back(data);
-            write<uint32_t>(_file, frame_size + padding); // last bit indicates keyframe
+            write<uint32_t>(_file, frame_size + padding); // last bit indicates keyframe, second last bit is reserved
         }
 
         for (size_t n = 0; n < _num_frames; ++n) {
@@ -274,14 +309,15 @@ namespace smk {
 
     void encoder::_write_chains(const std::vector<chain> &chains, huffman_tree<uint16_t> &type, huffman_tree<uint16_t> &mmap, huffman_tree<uint16_t> &mclr, huffman_tree<uint16_t> &full) {
         for (const auto &chain : chains) {
+            const uint16_t type_data = static_cast<uint16_t>(chain.type) | (chain.length << 2) | (chain.data << 8);
+            type.write(type_data);
+
             switch (chain.type) {
-                case block_type::solid: {
-                    const uint16_t type_data = static_cast<uint16_t>(chain.type) | (chain.length << 2) | (chain.data << 8);
-                    type.write(type_data);
+                case block_type::solid:
+                case block_type::void_:
                     break;
-                }
                 default:
-                    throw std::runtime_error("Not implemented");
+                    throw std::runtime_error(std::format("Unsupported chain type: {}", static_cast<uint8_t>(chain.type)));
             }
         }
     }
@@ -299,15 +335,15 @@ namespace smk {
         };
 
         const auto get_index = [&](const uint8_t val) {
-            static_assert(palmap.size() <= std::numeric_limits<uint8_t>::max());
+            static_assert(palmap.size() <= std::numeric_limits<uint_fast8_t>::max());
 
-            for (uint8_t n = 0; n < palmap.size(); ++n) {
+            for (uint_fast8_t n = 0; n < palmap.size(); ++n) {
                 if (palmap[n] >= val) {
                     return n;
                 }
             }
 
-            throw std::runtime_error("color exceeds palmap");
+            throw std::runtime_error("Color exceeds palmap");
         };
 
         _file.put(static_cast<char>(193)); // length of palette (256 * 3 + 1) / 4

@@ -254,6 +254,7 @@ namespace smk {
         };
 
         std::vector<frame_data> _frames;
+        std::vector<uint8_t> _last_frame;
 
         uint32_t _width;
         uint32_t _height;
