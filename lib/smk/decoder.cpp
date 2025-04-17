@@ -134,7 +134,7 @@ namespace smk {
                         const auto colors = _lookup_hoff16(_mclr);
                         const auto map = _lookup_hoff16(_mmap);
 
-                        const auto color1 = _palette[colors & 0xFF00 >> 8];
+                        const auto color1 = _palette[(colors & 0xFF00) >> 8];
                         const auto color2 = _palette[colors & 0xFF];
 
                         for (size_t n = 0; n < 4; ++n) {
@@ -156,7 +156,7 @@ namespace smk {
                         for (size_t n = 0; n < 4; ++n) {
                             auto full = _lookup_hoff16(_full);
 
-                            const auto color1 = _palette[full & 0xFF00 >> 8];
+                            const auto color1 = _palette[(full & 0xFF00) >> 8];
                             const auto color2 = _palette[full & 0xFF];
 
                             std::copy(color1.begin(), color1.end(), t + skip + 3 * 3);
@@ -164,7 +164,7 @@ namespace smk {
 
                             full = _lookup_hoff16(_full);
 
-                            const auto color3 = _palette[full & 0xFF00 >> 8];
+                            const auto color3 = _palette[(full & 0xFF00) >> 8];
                             const auto color4 = _palette[full & 0xFF];
 
                             std::copy(color3.begin(), color3.end(), t + skip + 3);
