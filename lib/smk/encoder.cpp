@@ -89,16 +89,7 @@ namespace smk {
 
         struct preprocessed_block {
             block_type type;
-            union {
-                struct {
-                    uint8_t color1;
-                    uint8_t color2;
-                    uint16_t pattern;
-                } mono;
-                struct {
-                    uint8_t color;
-                } solid;
-            };
+            block data;
         };
 
         std::vector<preprocessed_block> blocks;
@@ -108,20 +99,20 @@ namespace smk {
                 colors.reserve(3);
                 bool same_as_last = _num_frames > 0 ;
                 for (size_t y_off = 0; y_off < 4; ++y_off) {
-                    const size_t py = (y + y_off) * _width * 3;
-                    if (same_as_last && !std::ranges::equal(_last_frame.begin() + py, _last_frame.begin() + py + 4 * 3, frame.begin() + py, frame.begin() + py + 4 * 3)) {
-                        same_as_last = false;
-                    }
-
                     for (size_t x_off = 0; x_off < 4; ++x_off) {
-                        const size_t p = py + (x + x_off) * 3;
-                        const auto color = palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] };
+                        const size_t p = (y + y_off) * _width * 3 + (x + x_off) * 3;
+                        if (same_as_last && (frame[p] != _last_frame[p] || frame[p + 1] != _last_frame[p + 1] || frame[p + 2] != _last_frame[p + 2])) {
+                            same_as_last = false;
+                        }
 
+                        const auto color = palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] };
                         if (colors.size() < 3 && !std::ranges::contains(colors, color)) {
                             colors.emplace_back(color);
                         }
                     }
                 }
+
+                assert(colors.size() > 0);
 
                 // if (same_as_last) {
                 //     blocks.emplace_back(preprocessed_block{ block_type::void_, {} });
@@ -129,22 +120,34 @@ namespace smk {
                 // }
 
                 if (colors.size() < 2) {
-                    blocks.emplace_back(preprocessed_block{ block_type::solid, { get_index(colors[0]) } });
-                } else if (colors.size() == 2) {
+                    block block;
+                    block.solid.color = get_index(colors[0]);
+                    blocks.emplace_back(preprocessed_block{ block_type::solid, block });
+                // } else if (colors.size() == 2) {
                     // uint16_t pattern = 0;
-                    // for (size_t x_off = 0; x_off < 4; ++x_off) {
-                    //     for (size_t y_off = 0; y_off < 4; ++y_off) {
-                    //         const size_t p = (x + x_off) * 3 + (y + y_off) * _width * 3;
-                    //         const auto color = get_index(palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] });
-                    //         const uint16_t bit = colors[0] == color ? 0 : 1;
-                    //         pattern |= (bit << ());
-                    //     }
-                    // }
-                    // blocks.emplace_back(preprocessed_block{ block_type::mono, { colors[0], colors[1] } });
-                    blocks.emplace_back(preprocessed_block{ block_type::solid, { get_index(colors[0]) } });
+                //     // for (size_t x_off = 0; x_off < 4; ++x_off) {
+                //     //     for (size_t y_off = 0; y_off < 4; ++y_off) {
+                //     //         const size_t p = (x + x_off) * 3 + (y + y_off) * _width * 3;
+                //     //         const auto color = get_index(palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] });
+                //     //         const uint16_t bit = colors[0] == color ? 0 : 1;
+                //     //         pattern |= (bit << ());
+                //     //     }
+                //     // }
+                //     // blocks.emplace_back(preprocessed_block{ block_type::mono, { colors[0], colors[1] } });
+                //     // blocks.emplace_back(preprocessed_block{ block_type::solid, { get_index(colors[0]) } });
                 } else {
-                    // blocks.emplace_back(preprocessed_block{ block_type::full, { colors[0], colors[1], colors[2], colors[3] } });
-                    blocks.emplace_back(preprocessed_block{ block_type::solid, { get_index(colors[0]) } });
+                    block block;
+                    for (size_t y_off = 0; y_off < 4; ++y_off) {
+                        const size_t p = (y + y_off) * _width * 3 + x * 3;
+                        const uint16_t col1 = get_index(palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] });
+                        const uint16_t col2 = get_index(palette_type::value_type{ frame[p + 3], frame[p + 4], frame[p + 5] });
+                        const uint16_t col3 = get_index(palette_type::value_type{ frame[p + 6], frame[p + 7], frame[p + 8] });
+                        const uint16_t col4 = get_index(palette_type::value_type{ frame[p + 9], frame[p + 10], frame[p + 11] });
+                        block.full.colors[y_off][0] = (col4 << 8) | col3;
+                        block.full.colors[y_off][1] = (col2 << 8) | col1;
+                    }
+
+                    blocks.emplace_back(preprocessed_block{ block_type::full, block });
                 }
             }
         }
@@ -153,17 +156,22 @@ namespace smk {
 
         std::vector<std::vector<preprocessed_block>> rle_blocks;
         std::vector<preprocessed_block> current_chain;
-        for (size_t n = 0; n < blocks.size(); ++n) {
-            const auto &block = blocks[n];
-            current_chain.emplace_back(block);
-
-            if ((current_chain.size() < 2 || (block.type == current_chain.front().type && (block.type != block_type::solid || block.solid.color == current_chain.front().solid.color))) && n < blocks.size() - 1) {
-                continue;
-            }
-
-            assert(current_chain.size() > 0);
+        auto flush = [&]{
+            if (current_chain.empty()) return;
             rle_blocks.emplace_back(std::move(current_chain));
+            current_chain.clear();
+        };
+
+        for (const auto &b : blocks) {
+            if (!current_chain.empty() &&
+                (b.type != current_chain.front().type ||
+                (b.type == block_type::solid &&
+                b.data.solid.color != current_chain.front().data.solid.color))) {
+                flush();
+            }
+            current_chain.push_back(b);
         }
+        flush();
 
         assert(current_chain.size() == 0);
         assert(std::ranges::fold_left(rle_blocks, 0, [](size_t acc, const auto &c) { return acc + c.size(); }) == blocks.size());
@@ -211,17 +219,27 @@ namespace smk {
         std::vector<chain> chains;
         for (const auto &c : rle_blocks) {
             const auto sizes = get_sizes(c);
-            for (size_t n = 0; n < sizes.size(); ++n) {
+            size_t skip = 0;
+            for (const auto &size : sizes) {
+                std::vector<block> blocks;
+                if (c.front().type == block_type::full) {
+                    blocks.reserve(sizetable[size]);
+                    for (size_t n = skip; n < skip + sizetable[size]; ++n) {
+                        blocks.emplace_back(c[n].data);
+                    }
+                    skip += blocks.size();
+                }
                 chains.emplace_back(chain{
                     .type = c.front().type,
-                    .length = sizes[n],
-                    .data = c.front().solid.color,
-                    .blocks = {},
+                    .length = size,
+                    .data = static_cast<uint8_t>(c.front().type == block_type::solid ? c.front().data.solid.color : 0),
+                    .blocks = std::move(blocks),
                 });
             }
         }
 
         assert(std::ranges::fold_left(chains, 0, [sizetable](size_t acc, const auto &c) { return acc + sizetable[c.length]; }) == blocks.size());
+        assert(std::ranges::fold_left(chains, 0, [sizetable](size_t acc, const auto &c) { return acc + (c.blocks.empty() ? sizetable[c.length] : c.blocks.size()); }) == blocks.size());
 
         _frames.emplace_back(frame_data{
             .palette = palette,
@@ -312,9 +330,19 @@ namespace smk {
             const uint16_t type_data = static_cast<uint16_t>(chain.type) | (chain.length << 2) | (chain.data << 8);
             type.write(type_data);
 
+            // std::cout << std::format("Type: {}, Length: {}, Data: {:x}", static_cast<uint16_t>(chain.type), chain.length, chain.data) << std::endl;
+
             switch (chain.type) {
                 case block_type::solid:
                 case block_type::void_:
+                    break;
+                case block_type::full:
+                    for (const auto &block : chain.blocks) {
+                        for (size_t n = 0; n < 4; ++n) {
+                            full.write(block.full.colors[n][0]);
+                            full.write(block.full.colors[n][1]);
+                        }
+                    }
                     break;
                 default:
                     throw std::runtime_error(std::format("Unsupported chain type: {}", static_cast<uint8_t>(chain.type)));

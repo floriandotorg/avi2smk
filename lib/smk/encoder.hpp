@@ -237,7 +237,10 @@ namespace smk {
                 uint8_t color2;
             } mono;
             struct {
-                std::array<uint8_t, 16> colors;
+                uint8_t color;
+            } solid;
+            struct {
+                std::array<std::array<uint16_t, 2>, 4> colors;
             } full;
         };
 
