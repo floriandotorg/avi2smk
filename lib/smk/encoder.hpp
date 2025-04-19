@@ -15,6 +15,7 @@
 #include <optional>
 #include <array>
 #include <climits>
+#include <functional>
 
 namespace smk {
     class encoder {
@@ -48,42 +49,54 @@ namespace smk {
             constexpr static bool is_huff16 = std::numeric_limits<symbol_type>::digits >= 16;
 
             bitstream &_bitstream;
-
             std::map<symbol_type, size_t> _symbol_freq;
-
-            struct node {
-                std::unique_ptr<node> zero;
-                std::unique_ptr<node> one;
-                std::optional<symbol_type> symbol;
-                size_t freq;
-            };
-            std::unique_ptr<node> _root = nullptr;
+            std::array<symbol_type, 3> _escape_values;
 
             struct code_type {
                 bitstream::value_type word;
                 size_t length;
             };
 
-
-            void _build_huff_table(node *node, code_type code) {
-                if (node->symbol.has_value()) {
-                    _huff_table[node->symbol.value()] = code;
-                    return;
-                }
-
-                _build_huff_table(node->zero.get(), code_type{ static_cast<bitstream::value_type>(code.word), code.length + 1 });
-                _build_huff_table(node->one.get(), code_type{ static_cast<bitstream::value_type>(code.word | (1 << code.length)), code.length + 1 });
-            }
-
-            std::array<symbol_type, 3> _escape_values;
         public:
             std::map<symbol_type, code_type> _huff_table;
             huffman_tree(bitstream &bitstream) : _bitstream(bitstream) {}
 
-            void switch_to_write_mode() {
-                if (_root != nullptr) {
-                    throw std::runtime_error("already in write mode");
+            void write(symbol_type value) {
+                if (_huff_table.empty()) {
+                    ++_symbol_freq[value];
+                    return;
                 }
+
+                const auto it = _huff_table.find(value);
+                if (it == _huff_table.end()) {
+                    throw std::runtime_error("symbol not found in huffman table");
+                }
+
+                const auto &code = it->second;
+                _bitstream.write(code.word, code.length);
+            }
+
+            void pack() {
+                if (!_huff_table.empty()) {
+                    throw std::runtime_error("tree already built");
+                }
+
+                struct node {
+                    std::unique_ptr<node> zero;
+                    std::unique_ptr<node> one;
+                    std::optional<symbol_type> symbol;
+                    size_t freq;
+                };
+
+                const std::function<void(node*, code_type)> build_huff_table = [this, &build_huff_table](node* node, code_type code) {
+                    if (node->symbol.has_value()) {
+                        _huff_table[node->symbol.value()] = code;
+                        return;
+                    }
+
+                    build_huff_table(node->zero.get(), code_type{ static_cast<bitstream::value_type>(code.word), code.length + 1 });
+                    build_huff_table(node->one.get(), code_type{ static_cast<bitstream::value_type>(code.word | (1 << code.length)), code.length + 1 });
+                };
 
                 if constexpr (is_huff16) {
                     size_t n = 0;
@@ -130,49 +143,27 @@ namespace smk {
                 }
 
                 assert(queue.size() == 1);
+                std::unique_ptr<node> root = std::move(queue.back());
+                build_huff_table(root.get(), {});
 
-                _root = std::move(queue.back());
+                const std::function<void(const node*, huffman_tree<uint8_t>*, huffman_tree<uint8_t>*)> pack_tree_structure =
+                    [this, &pack_tree_structure](const node* node, huffman_tree<uint8_t>* high_byte_tree, huffman_tree<uint8_t>* low_byte_tree) {
+                    if (!node->symbol.has_value()) {
+                        _bitstream.write(0b1, 1);
+                        pack_tree_structure(node->zero.get(), high_byte_tree, low_byte_tree);
+                        pack_tree_structure(node->one.get(), high_byte_tree, low_byte_tree);
+                        return;
+                    }
 
-                _build_huff_table(_root.get(), {});
-            }
+                    _bitstream.write(0b0, 1);
 
-            void write(symbol_type value) {
-                if (_root == nullptr) {
-                    ++_symbol_freq[value];
-                    return;
-                }
-
-                const auto it = _huff_table.find(value);
-                if (it == _huff_table.end()) {
-                    throw std::runtime_error("symbol not found in huffman table");
-                }
-
-                const auto &code = it->second;
-                _bitstream.write(code.word, code.length);
-            }
-
-            void _pack(node *node, huffman_tree<uint8_t> *high_byte_tree, huffman_tree<uint8_t> *low_byte_tree) const {
-                if (!node->symbol.has_value()) {
-                    _bitstream.write(0b1, 1);
-                    _pack(node->zero.get(), high_byte_tree, low_byte_tree);
-                    _pack(node->one.get(), high_byte_tree, low_byte_tree);
-                    return;
-                }
-
-                _bitstream.write(0b0, 1);
-
-                if constexpr (is_huff16) {
-                    low_byte_tree->write(node->symbol.value() & 0xFF);
-                    high_byte_tree->write(node->symbol.value() >> 8);
-                } else {
-                    _bitstream.write(node->symbol.value(), sizeof(symbol_type) * CHAR_BIT);
-                }
-            }
-
-            void pack() const {
-                if (_root == nullptr) {
-                    throw std::runtime_error("not in write mode");
-                }
+                    if constexpr (is_huff16) {
+                        low_byte_tree->write(node->symbol.value() & 0xFF);
+                        high_byte_tree->write(node->symbol.value() >> 8);
+                    } else {
+                        _bitstream.write(node->symbol.value(), sizeof(symbol_type) * CHAR_BIT);
+                    }
+                };
 
                 _bitstream.write(0b1, 1);
 
@@ -185,34 +176,23 @@ namespace smk {
                         high_byte_tree.write(symbol.first >> 8);
                     }
 
-                    low_byte_tree.switch_to_write_mode();
                     low_byte_tree.pack();
-
-                    high_byte_tree.switch_to_write_mode();
                     high_byte_tree.pack();
 
                     for (size_t n = 0; n < _escape_values.size(); ++n) {
                         _bitstream.write(_escape_values[n], sizeof(typename decltype(_escape_values)::value_type) * CHAR_BIT);
                     }
 
-                    _pack(_root.get(), &high_byte_tree, &low_byte_tree);
+                    pack_tree_structure(root.get(), &high_byte_tree, &low_byte_tree);
                 } else {
-                    _pack(_root.get(), nullptr, nullptr);
+                    pack_tree_structure(root.get(), nullptr, nullptr);
                 }
 
                 _bitstream.write(0b0, 1);
             }
 
-            size_t _size(node *node) const {
-                if (node->symbol.has_value()) {
-                    return 1;
-                }
-
-                return 1 + _size(node->zero.get()) + _size(node->one.get());
-            }
-
             size_t size() const {
-                return _size(_root.get());
+                return 2 * _huff_table.size() - 1;
             }
         };
 

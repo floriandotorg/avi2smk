@@ -275,13 +275,10 @@ namespace smk {
             _write_chains(_frames[n].chains, type, mmap, mclr, full);
         }
 
-        mmap.switch_to_write_mode();
+        // Build and pack Huffman trees with the merged pack function
         mmap.pack();
-        mclr.switch_to_write_mode();
         mclr.pack();
-        full.switch_to_write_mode();
         full.pack();
-        type.switch_to_write_mode();
         type.pack();
 
         bs.flush();
