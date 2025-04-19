@@ -123,18 +123,31 @@ namespace smk {
                     block block;
                     block.solid.color = get_index(colors[0]);
                     blocks.emplace_back(preprocessed_block{ block_type::solid, block });
-                // } else if (colors.size() == 2) {
-                    // uint16_t pattern = 0;
-                //     // for (size_t x_off = 0; x_off < 4; ++x_off) {
-                //     //     for (size_t y_off = 0; y_off < 4; ++y_off) {
-                //     //         const size_t p = (x + x_off) * 3 + (y + y_off) * _width * 3;
-                //     //         const auto color = get_index(palette_type::value_type{ frame[p], frame[p + 1], frame[p + 2] });
-                //     //         const uint16_t bit = colors[0] == color ? 0 : 1;
-                //     //         pattern |= (bit << ());
-                //     //     }
-                //     // }
-                //     // blocks.emplace_back(preprocessed_block{ block_type::mono, { colors[0], colors[1] } });
-                //     // blocks.emplace_back(preprocessed_block{ block_type::solid, { get_index(colors[0]) } });
+                } else if (colors.size() == 2) {
+                    const uint8_t idx_color1 = get_index(colors[0]);
+                    const uint8_t idx_color0 = get_index(colors[1]);
+
+                    uint16_t pixmap = 0;
+                    for (size_t y_off = 0; y_off < 4; ++y_off) {
+                        for (size_t x_off = 0; x_off < 4; ++x_off) {
+                            const size_t bit_index = y_off * 4 + x_off; // 0..15
+                            const size_t p = (y + y_off) * _width * 3 + (x + x_off) * 3;
+
+                            const palette_type::value_type current_color{
+                                frame[p], frame[p + 1], frame[p + 2]
+                            };
+
+                            if (current_color == colors[0]) {
+                                pixmap |= static_cast<uint16_t>(1) << bit_index;
+                            }
+                        }
+                    }
+
+                    block block;
+                    block.mono.colors = static_cast<uint16_t>((idx_color1 << 8) | idx_color0);
+                    block.mono.map = pixmap;
+
+                    blocks.emplace_back(preprocessed_block{ block_type::mono, block });
                 } else {
                     block block;
                     for (size_t y_off = 0; y_off < 4; ++y_off) {
@@ -222,7 +235,7 @@ namespace smk {
             size_t skip = 0;
             for (const auto &size : sizes) {
                 std::vector<block> blocks;
-                if (c.front().type == block_type::full) {
+                if (c.front().type == block_type::full || c.front().type == block_type::mono) {
                     blocks.reserve(sizetable[size]);
                     for (size_t n = skip; n < skip + sizetable[size]; ++n) {
                         blocks.emplace_back(c[n].data);
@@ -339,6 +352,12 @@ namespace smk {
                             full.write(block.full.colors[n][0]);
                             full.write(block.full.colors[n][1]);
                         }
+                    }
+                    break;
+                case block_type::mono:
+                    for (const auto &block : chain.blocks) {
+                        mclr.write(block.mono.colors);
+                        mmap.write(block.mono.map);
                     }
                     break;
                 default:

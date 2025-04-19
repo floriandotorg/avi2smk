@@ -213,8 +213,17 @@ namespace smk {
 
         union block {
             struct {
-                uint8_t color1;
-                uint8_t color2;
+                // Packed palette indices of the two colours present in the
+                // 4×4 mono block.  High byte contains colour1 (used when the
+                // corresponding bit in the map is set), low byte contains
+                // colour0 (used when the bit is clear).
+                uint16_t colors;
+                // Bit‑map describing which of the two colours should be used
+                // for each of the 16 pixels in the block.  Bit 0 corresponds
+                // to the top‑left pixel, subsequent bits proceed in row‑major
+                // order.  A set bit selects colour1, a cleared bit selects
+                // colour0.
+                uint16_t map;
             } mono;
             struct {
                 uint8_t color;

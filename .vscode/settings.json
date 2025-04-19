@@ -79,6 +79,7 @@
 		"mclr",
 		"palmap",
 		"pels",
+		"pixmap",
 		"strf",
 		"strh",
 		"strl",
