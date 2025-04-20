@@ -18,3 +18,4 @@ Testing
 *.raw
 *.png
 *.txt
+.env
