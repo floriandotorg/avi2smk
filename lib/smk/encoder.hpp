@@ -20,10 +20,10 @@
 namespace smk {
     class encoder {
     public:
-        explicit encoder(std::ostream &file, uint32_t width, uint32_t height, uint32_t fps);
-        ~encoder();
+        explicit encoder(uint32_t width, uint32_t height, uint32_t fps);
 
         void encode_frame(const std::span<uint8_t> &frame);
+        void write(std::ostream &file);
 
     private:
         class bitstream {
@@ -196,13 +196,8 @@ namespace smk {
             }
         };
 
-        std::ostream &_file;
-
         using palette_type = std::array<std::array<uint8_t, 3>, 256>;
-
-        void _write_palette(const palette_type &palette);
-
-        size_t _num_frames = 0;
+        void _write_palette(std::ostream &file, const palette_type &palette);
 
         enum class block_type : uint8_t {
             mono = 0,
@@ -213,16 +208,7 @@ namespace smk {
 
         union block {
             struct {
-                // Packed palette indices of the two colours present in the
-                // 4×4 mono block.  High byte contains colour1 (used when the
-                // corresponding bit in the map is set), low byte contains
-                // colour0 (used when the bit is clear).
                 uint16_t colors;
-                // Bit‑map describing which of the two colours should be used
-                // for each of the 16 pixels in the block.  Bit 0 corresponds
-                // to the top‑left pixel, subsequent bits proceed in row‑major
-                // order.  A set bit selects colour1, a cleared bit selects
-                // colour0.
                 uint16_t map;
             } mono;
             struct {
@@ -233,25 +219,10 @@ namespace smk {
             } full;
         };
 
-        struct chain {
-            block_type type;
-            size_t length;
-            uint8_t data;
-            std::vector<block> blocks;
-        };
-
-        struct frame_data {
-            palette_type palette;
-            std::vector<chain> chains;
-        };
-
-        std::vector<frame_data> _frames;
-        std::vector<uint8_t> _last_frame;
+        std::vector<std::vector<uint8_t>> _frames;
 
         uint32_t _width;
         uint32_t _height;
         uint32_t _fps;
-
-        void _write_chains(const std::vector<chain> &chains, huffman_tree<uint16_t> &type, huffman_tree<uint16_t> &mmap, huffman_tree<uint16_t> &mclr, huffman_tree<uint16_t> &full);
     };
 }

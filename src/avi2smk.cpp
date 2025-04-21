@@ -15,12 +15,14 @@ int main(int argc, char **argv) {
     avi::decoder decoder(file);
 
     std::ofstream output("output.smk", std::ios::binary);
-    smk::encoder encoder(output, decoder.width(), decoder.height(), decoder.fps());
+    smk::encoder encoder(decoder.width(), decoder.height(), decoder.fps());
 
     for (size_t n = 0; n < decoder.num_frames(); ++n) {
         std::cout << std::format("Frame {}... ", n + 1) << std::flush;
         encoder.encode_frame(decoder.decode_frame());
     }
+
+    encoder.write(output);
 
     return 0;
 }

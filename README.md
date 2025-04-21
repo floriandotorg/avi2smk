@@ -2,7 +2,7 @@
 
 A **highly-portable**, **zero-dependency** CPP lib/cli for encoding and decoding Smacker video files (.smk), a multimedia file format primarily used in games from the mid-1990s, including the 1997 Lego Island game.
 
-Currently this is the only open-source implementation of a Smacker encoder.
+This project is currently the only open-source implementation of a Smacker encoder.
 
 ## About Smacker Format
 
@@ -11,19 +11,19 @@ Smacker is a proprietary video file format developed by RAD Game Tools. It was w
 ## Features
 
 - Decode Smacker video files to avi
-- Encode Smacker video files from avi (WIP)
+- Encode Smacker video files from avi
 
 ## Limitations
 
 - **Audio**: Audio decoding/encoding is not supported.
-- **Colors**: For encoding the input video is expected to be reduced to 256 colors. This can be achieved by converting it to a GIF first. This, unfortunately, leads to each frame having a separate pallete which lowers compression.  A better approach would be to reduce the colors when encoding and use an intelligent pallete management. This, however, is not trivial.
+- **Colors**: For encoding, the input video is expected to be reduced to 256 colors. This can be achieved by converting it to a GIF first (see "Convert AVI to Smacker Video").
 - **Version 4**: Smacker version 4 files are not supported.
 - **Interlacing/Doubling**: Interlacing and doubling are not supported.
 - **Padding**: The width and height of the video is expected to be divisible by 4 (encoding & decoding).
 
 ## Portability
 
-This project has no dependencies other then the C++ Standard Library. C++23 is the current target standard. Both encoder and decoder are standalone files, optimized for quick copy and paste.
+This project has no third-party dependencies. C++23 is the current target standard. Both encoder and decoder are standalone files, optimized for quick copy and paste.
 
 ## Usage
 
@@ -59,8 +59,6 @@ Then convert it using avi2smk:
 ```
 
 This will create an `output.smk` file in the current directory.
-
-_Note: AVI to Smacker conversion is still a work in progress as mentioned in the Features section._
 
 ## Unit Tests
 
