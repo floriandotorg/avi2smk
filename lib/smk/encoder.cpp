@@ -152,10 +152,10 @@ namespace smk {
 
                     assert(colors.size() > 0);
 
-                    // if (same_as_last) {
-                    //     blocks.emplace_back(preprocessed_block{ block_type::void_, {} });
-                    //     continue;
-                    // }
+                    if (same_as_last) {
+                        blocks.emplace_back(preprocessed_block{ block_type::void_, {} });
+                        continue;
+                    }
 
                     if (colors.size() < 2) {
                         block block;
