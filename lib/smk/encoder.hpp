@@ -100,7 +100,7 @@ namespace smk {
 
                 if constexpr (is_huff16) {
                     size_t n = 0;
-                    for (uint16_t symbol = 1; symbol < std::numeric_limits<symbol_type>::max() && n < _escape_values.size(); ++symbol) {
+                    for (uint16_t symbol = 1; symbol != 0 && n < _escape_values.size(); ++symbol) {
                         if (!_symbol_freq.contains(symbol)) {
                             _escape_values[n++] = symbol;
                         }
